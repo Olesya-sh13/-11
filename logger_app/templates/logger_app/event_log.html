@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Журнал событий доступа</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #ffebd2;
+        }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .role-badge { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+        .nav-link { background: #ffd6b3; padding: 6px 16px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 13px; }
+        .logout-link { background: #ffe0c4; }
+        
+        .filter-form {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+            border: 1px solid #ffebd2;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 12px; font-weight: 600; color: #7a6242; }
+        select, button {
+            padding: 8px 14px;
+            border-radius: 30px;
+            border: 1px solid #ffdbbc;
+            background: white;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        button { background: #ffd6b3; border: none; font-weight: 500; }
+        button:hover { background: #ffc48a; }
+        .reset-link { background: #fff0e3; padding: 7px 16px; border-radius: 30px; text-decoration: none; color: #b1622c; font-size: 13px; }
+        
+        .table-wrapper { overflow-x: auto; background: white; border-radius: 16px; padding: 4px; margin-bottom: 25px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #ffecd9; padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 10px 12px; border-bottom: 1px solid #f7e6d4; }
+        tr:hover td { background-color: #fff7ef; }
+        
+        .status-allowed { background: #e6f5e8; color: #2b6e3c; padding: 4px 10px; border-radius: 30px; display: inline-block; font-size: 11px; font-weight: 600; }
+        .status-denied { background: #ffe6e5; color: #bc3f2e; padding: 4px 10px; border-radius: 30px; display: inline-block; font-size: 11px; font-weight: 600; }
+        
+        .pagination { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 15px; }
+        .pagination a { background: #ffebd9; padding: 6px 14px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-size: 13px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Шапка -->
+    <div class="user-header">
+        <div class="user-info">
+            <strong>👤 {{ username }}</strong>
+            <span class="role-badge">{{ user_role }}</span>
+        </div>
+        <div>
+            <a href="{% url 'logger_app:dashboard' %}" class="nav-link">← Дашборд</a>
+            {% if is_admin %}
+                <a href="{% url 'logger_app:settings' %}" class="nav-link">⚙️ Настройки</a>
+            {% endif %}
+            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">🚪 Выйти</a>
+        </div>
+    </div>
+
+    <h1>Журнал событий доступа</h1>
+
+    <!-- Фильтры -->
+    <div class="filter-form">
+        {% if is_admin %}
+        <div class="filter-group"><label>Пользователь</label><select id="userFilter"><option value="">Все</option>{% for u in all_users %}<option value="{{ u }}" {% if selected_user == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select></div>
+        {% else %}
+        <input type="hidden" id="userFilter" value="">
+        {% endif %}
+        <div class="filter-group"><label>Виртуальная машина</label><select id="vmFilter"><option value="">Все</option>{% for v in all_vms %}<option value="{{ v }}" {% if selected_vm == v %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+        <div class="filter-group"><label>Результат</label><select id="resultFilter"><option value="">Все</option><option value="allowed" {% if selected_result == "allowed" %}selected{% endif %}>Разрешено</option><option value="denied" {% if selected_result == "denied" %}selected{% endif %}>Запрещено</option></select></div>
+        <div class="filter-group"><button id="applyFilterBtn">Применить</button></div>
+        <div class="filter-group"><a href="{% url 'logger_app:event_log' %}" class="reset-link">Сбросить</a></div>
+    </div>
+    {% if not is_admin %}
+    <p style="font-size:13px; color:#7a6242; margin-bottom:15px;">Отображаются все события доступа.</p>
+    {% endif %}
+
+    <!-- Таблица событий -->
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Время</th><th>Пользователь</th><th>Виртуальная машина</th><th>Операция</th><th>Результат</th><th>Причина</th></tr></thead>
+            <tbody>
+                {% for event in page_obj %}
+                <tr>
+                    <td>{{ event.timestamp|date:"H:i:s" }}</td>
+                    <td>{{ event.user }}</td>
+                    <td>{{ event.vm }}</td>
+                    <td>{{ event.action }}</td>
+                    <td>{% if event.final_allowed %}<span class="status-allowed">РАЗРЕШЕНО</span>{% else %}<span class="status-denied">ЗАПРЕЩЕНО</span>{% endif %}</td>
+                    <td>{{ event.final_reason|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6">Нет событий</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Пагинация -->
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">« Первая</a>
+            <a href="?page={{ page_obj.previous_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Назад</a>
+        {% endif %}
+        <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Вперёд</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Последняя »</a>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.getElementById('applyFilterBtn').onclick = () => {
+        const user = document.getElementById('userFilter').value;
+        const vm = document.getElementById('vmFilter').value;
+        const result = document.getElementById('resultFilter').value;
+        let url = "?";
+        if (user) url += "user=" + encodeURIComponent(user) + "&";
+        if (vm) url += "vm=" + encodeURIComponent(vm) + "&";
+        if (result) url += "result=" + encodeURIComponent(result);
+        window.location.href = url;
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Контейнер журналирования событий доступа</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #ffebd2;
+        }
+        .user-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .role-badge { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+        .access-badge { background: #ffd6b3; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+        .nav-link { background: #ffd6b3; padding: 8px 18px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 14px; }
+        .logout-link { background: #ffe0c4; }
+
+        .stats-grid { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+        .stat-card { background: white; border-radius: 20px; padding: 20px; flex: 1; min-width: 130px; text-align: center; border: 1px solid #ffebd2; }
+        .stat-number { font-size: 32px; font-weight: 800; color: #e67e22; }
+        .stat-label { font-size: 13px; color: #7f6b54; }
+
+        /* Блок для двух колонок: пирог + злоумышленник (для admin) */
+        .top-row {
+            display: flex;
+            gap: 24px;
+            margin: 20px 0;
+            align-items: stretch;
+        }
+        .top-row .chart-box { flex: 1; }
+
+        .chart-box {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid #ffebd2;
+        }
+        .chart-box h3 { text-align: center; margin-bottom: 15px; color: #4a3b2a; font-size: 16px; }
+        .pie-wrapper { max-width: 260px; margin: 0 auto; }
+
+        /* Блок злоумышленника */
+        .attacker-block {
+            background: #fff4e8;
+            border-left: 5px solid #e67e22;
+            padding: 20px;
+            border-radius: 16px;
+            height: 100%;
+        }
+        .attacker-title { font-weight: 700; margin-bottom: 12px; color: #b45f2a; font-size: 15px; }
+        .attacker-list { list-style: none; padding-left: 0; margin-top: 8px; }
+        .attacker-list li { margin-bottom: 6px; font-size: 14px; }
+
+        /* Таймлайн — всегда снизу, на всю ширину */
+        .timeline-container {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin: 20px 0;
+            border: 1px solid #ffebd2;
+        }
+        .timeline-container h3 { text-align: center; margin-bottom: 20px; color: #4a3b2a; font-size: 16px; }
+
+        .table-wrapper { overflow-x: auto; background: white; border-radius: 16px; margin: 20px 0; padding: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #ffecd9; padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 10px 12px; border-bottom: 1px solid #f7e6d4; }
+        tr:hover td { background-color: #fff7ef; }
+
+        h2 { font-size: 20px; margin-top: 20px; margin-bottom: 10px; color: #4a3b2a; }
+
+        @media (max-width: 700px) {
+            .top-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Шапка -->
+    <div class="user-header">
+        <div class="user-info">
+            <strong>👤 {{ username }}</strong>
+            <span class="role-badge">{{ user_role }}</span>
+            {% if is_admin %}
+                <span class="access-badge">🔑 Полный доступ</span>
+            {% else %}
+                <span class="access-badge">📖 Ограниченный доступ</span>
+            {% endif %}
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="{% url 'logger_app:event_log' %}" class="nav-link">📋 Журнал событий</a>
+            {% if is_admin %}
+                <a href="{% url 'logger_app:encrypted_logs' %}" class="nav-link">🔐 Шифрованные логи</a>
+                <a href="{% url 'logger_app:settings' %}" class="nav-link">⚙️ Настройки</a>
+            {% endif %}
+            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">🚪 Выйти</a>
+        </div>
+    </div>
+
+    <h1>Контейнер журналирования событий доступа</h1>
+    <div style="margin-bottom: 20px; color: #7a6242;">Мониторинг обращений к виртуальным машинам</div>
+
+    <!-- Статистика-числа -->
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-number">{{ total_events }}</div><div class="stat-label">Всего событий</div></div>
+        <div class="stat-card"><div class="stat-number" style="color:#3c9b5e;">{{ final_allowed }}</div><div class="stat-label">Разрешено</div></div>
+        <div class="stat-card"><div class="stat-number" style="color:#c9593b;">{{ final_denied }}</div><div class="stat-label">Запрещено</div></div>
+        <div class="stat-card"><div class="stat-number">{{ anomaly_events }}</div><div class="stat-label">Аномалий частоты</div></div>
+        <div class="stat-card"><div class="stat-number">{{ critical_anomaly_events }}</div><div class="stat-label">Критических аномалий</div></div>
+    </div>
+
+    {% if is_admin %}
+    <!-- ADMIN: слева — пирог, справа — злоумышленник -->
+    <div class="top-row">
+        <div class="chart-box">
+            <h3>Соотношение доступа</h3>
+            <div class="pie-wrapper"><canvas id="pieChart"></canvas></div>
+        </div>
+        <div class="chart-box" style="flex:1;">
+            <h3 style="text-align:left; color:#b45f2a;">⚠️ Нелегитимный пользователь (Злоумышленник)</h3>
+            <div class="attacker-block">
+                <div style="margin-bottom:10px;">Всего попыток доступа: <strong>{{ attacker_count }}</strong></div>
+                {% if attacker_by_vm %}
+                    <div style="font-weight:600; margin-bottom:6px; color:#7a6242;">По виртуальным машинам:</div>
+                    <ul class="attacker-list">
+                        {% for vm, count in attacker_by_vm.items %}
+                            <li>• {{ vm }} — <strong>{{ count }}</strong> раз</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div>Попыток не зафиксировано</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- ОБЫЧНЫЙ ПОЛЬЗОВАТЕЛЬ: только пирог, по центру -->
+    <div class="chart-box" style="max-width:400px; margin: 20px auto;">
+        <h3>Соотношение доступа</h3>
+        <div class="pie-wrapper"><canvas id="pieChart"></canvas></div>
+    </div>
+    {% endif %}
+
+    <!-- Таблицы -->
+    <h2>Статистика по пользователям</h2>
+    <div class="table-wrapper">{{ user_stats|safe }}</div>
+
+    <h2>Статистика по виртуальным машинам</h2>
+    <div class="table-wrapper">{{ vm_stats|safe }}</div>
+
+    <!-- Таймлайн — всегда внизу, на всю ширину -->
+    <div class="timeline-container">
+        <h3>📈 Динамика обращений по времени</h3>
+        <canvas id="timelineChart" style="max-height:300px;"></canvas>
+    </div>
+
+</div>
+
+<script>
+    // Круговая диаграмма
+    new Chart(document.getElementById('pieChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Разрешено', 'Запрещено'],
+            datasets: [{
+                data: [{{ final_allowed }}, {{ final_denied }}],
+                backgroundColor: ['#4CAF50', '#f44336'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // Таймлайн
+    const timelineAllowedTimes  = {{ timeline.allowed.times|safe }};
+    const timelineAllowedValues = {{ timeline.allowed.values|safe }};
+    const timelineDeniedTimes   = {{ timeline.denied.times|safe }};
+    const timelineDeniedValues  = {{ timeline.denied.values|safe }};
+
+    const lineCtx = document.getElementById('timelineChart').getContext('2d');
+    new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: timelineAllowedTimes,
+            datasets: [
+                {
+                    label: 'Разрешено',
+                    data: timelineAllowedValues,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Запрещено',
+                    data: timelineDeniedValues,
+                    borderColor: '#f44336',
+                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Время' } },
+                y: { title: { display: true, text: 'Количество событий' }, beginAtZero: true }
+            },
+            plugins: {
+                tooltip: { mode: 'index', intersect: false }
+            }
+        }
+    });
+</script>
+</body>
+</html>

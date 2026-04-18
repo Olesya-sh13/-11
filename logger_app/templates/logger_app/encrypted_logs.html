@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Зашифрованные логи — только для администратора</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .user-header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: white; padding: 15px 20px; border-radius: 20px;
+            margin-bottom: 25px; border: 1px solid #ffebd2;
+        }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .role-badge { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+        .nav-link { background: #ffd6b3; padding: 8px 18px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 14px; margin-left: 8px; }
+        .logout-link { background: #ffe0c4; }
+
+        .info-box {
+            background: white; border-radius: 20px; padding: 24px;
+            border: 1px solid #ffebd2; margin-bottom: 24px;
+        }
+        .info-box h2 { color: #4a3b2a; font-size: 18px; margin-bottom: 14px; }
+        .info-box p { color: #6b5540; font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+        .info-box p:last-child { margin-bottom: 0; }
+
+        .how-it-works {
+            display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;
+        }
+        .step {
+            flex: 1; min-width: 180px; background: #fef7ee;
+            border: 1px solid #ffdfc4; border-radius: 14px;
+            padding: 16px; text-align: center;
+        }
+        .step-num { font-size: 26px; font-weight: 800; color: #e67e22; }
+        .step-title { font-weight: 600; color: #4a3b2a; margin: 6px 0 4px; font-size: 14px; }
+        .step-desc { font-size: 12px; color: #7a6242; line-height: 1.5; }
+
+        .files-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+        .file-card {
+            background: white; border-radius: 16px; border: 1px solid #ffebd2;
+            padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .file-card.active { border-color: #e67e22; background: #fff8f0; }
+        .file-info { display: flex; flex-direction: column; gap: 4px; }
+        .file-label { font-weight: 600; color: #4a3b2a; font-size: 15px; }
+        .file-meta { font-size: 12px; color: #9b8472; }
+        .file-name-code { font-family: monospace; font-size: 12px; color: #b07030; background: #ffeee0; padding: 2px 8px; border-radius: 6px; display: inline-block; margin-top: 2px; }
+        .btn-view { background: #ffd6b3; border: none; padding: 8px 18px; border-radius: 30px; color: #5a3e2a; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; }
+        .btn-view:hover { background: #ffc48a; }
+        .btn-active { background: #e67e22; color: white; }
+
+        .decrypted-box {
+            background: white; border-radius: 20px; border: 2px solid #e67e22;
+            padding: 24px; margin-bottom: 24px;
+        }
+        .decrypted-box h3 { color: #b45f2a; margin-bottom: 16px; font-size: 16px; }
+        .event-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .event-table th { background: #ffecd9; padding: 10px 12px; text-align: left; font-weight: 600; color: #4a3b2a; }
+        .event-table td { padding: 9px 12px; border-bottom: 1px solid #f7e6d4; color: #5a4030; }
+        .event-table tr:hover td { background: #fff7ef; }
+        .badge-denied { background: #ffe6e5; color: #bc3f2e; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge-blocked { background: #fff0d9; color: #b45f2a; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .meta-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+        .meta-tag { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 12px; color: #7a5030; }
+
+        .error-box { background: #ffe6e5; color: #bc3f2e; padding: 16px 20px; border-radius: 14px; font-size: 14px; }
+
+        .encrypted-preview {
+            background: #f5f0e8; border-radius: 12px; padding: 14px 18px;
+            font-family: monospace; font-size: 11px; color: #9b7040;
+            word-break: break-all; line-height: 1.6; max-height: 80px; overflow: hidden;
+            position: relative;
+        }
+        .encrypted-preview::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
+            background: linear-gradient(transparent, #f5f0e8);
+        }
+        .encrypted-label { font-size: 11px; color: #9b8472; margin-bottom: 6px; }
+
+        h1 { color: #2c2b28; font-size: 24px; margin-bottom: 6px; }
+        .subtitle { color: #7a6242; font-size: 14px; margin-bottom: 22px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="user-header">
+        <div class="user-info">
+            <strong> {{ username }}</strong>
+            <span class="role-badge">Администратор</span>
+        </div>
+        <div>
+            <a href="{% url 'logger_app:dashboard' %}" class="nav-link">← Дашборд</a>
+            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">Выйти</a>
+        </div>
+    </div>
+
+    <h1>Зашифрованные логи безопасности</h1>
+    <p class="subtitle">Раздел доступен только администратору — содержит чувствительные данные инцидентов</p>
+
+    <!-- Объяснение системы -->
+    <div class="info-box">
+        <h2>Как работает шифрование логов?</h2>
+        <p>
+            Критически важные события безопасности (попытки злоумышленника, нарушения политики, аномалии частоты)
+            сохраняются не в открытом виде, а в <strong>зашифрованном формате</strong>.
+            Это означает, что даже если кто-то получит доступ к файловой системе сервера,
+            он увидит только нечитаемый набор символов — без ключа расшифровки данные бесполезны.
+        </p>
+        <p>
+            Используется алгоритм <strong>Fernet (AES-128-CBC + HMAC-SHA256)</strong> — симметричное шифрование
+            из библиотеки <code>cryptography</code>. Ключ хранится отдельно от данных и никогда не передаётся
+            по сети. Расшифровка возможна только из этого защищённого административного интерфейса.
+        </p>
+        <div class="how-it-works">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-title">Событие зафиксировано</div>
+                <div class="step-desc">Система обнаруживает инцидент: попытку взлома, нарушение политики или аномальную активность</div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-title">Данные шифруются</div>
+                <div class="step-desc">JSON с деталями события кодируется ключом Fernet и сохраняется в файл <code>.enc</code></div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-title">Файл нечитаем</div>
+                <div class="step-desc">Без ключа файл выглядит как случайный набор символов — Base64 от зашифрованных байт</div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-title">Только admin видит содержимое</div>
+                <div class="step-desc">Нажав «Расшифровать», администратор получает читаемую таблицу событий</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Список файлов -->
+    <div class="info-box" style="padding-bottom: 12px;">
+        <h2 style="margin-bottom: 16px;">Зашифрованные файлы логов</h2>
+        {% if files %}
+        <div class="files-grid">
+            {% for file in files %}
+            <div class="file-card {% if viewed_file == file.name %}active{% endif %}">
+                <div class="file-info">
+                    <div class="file-label">{{ file.label }}</div>
+                    <div class="file-meta">Создан: {{ file.modified }} &nbsp;·&nbsp; Размер: {{ file.size }} байт</div>
+                    <div class="file-name-code">{{ file.name }}</div>
+                </div>
+                <a href="?view={{ file.name }}" class="btn-view {% if viewed_file == file.name %}btn-active{% endif %}">
+                    {% if viewed_file == file.name %}Открыт{% else %}Расшифровать{% endif %}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:#9b8472;">Зашифрованных файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    <!-- Расшифрованное содержимое -->
+    {% if decrypted_error %}
+    <div class="error-box">{{ decrypted_error }}</div>
+    {% endif %}
+
+    {% if decrypted_content %}
+    <div class="decrypted-box">
+        <h3>Расшифрованное содержимое файла: {{ viewed_file }}</h3>
+        <div class="meta-row">
+            <span class="meta-tag">Тип: {{ decrypted_content.type }}</span>
+            <span class="meta-tag">Сгенерирован: {{ decrypted_content.generated }}</span>
+            <span class="meta-tag">Событий: {{ decrypted_content.events|length }}</span>
+        </div>
+        {% if decrypted_content.events %}
+        <div style="overflow-x:auto;">
+        <table class="event-table">
+            <thead>
+                <tr>
+                    <th>Время</th>
+                    <th>Пользователь</th>
+                    <th>Виртуальная машина</th>
+                    <th>Операция</th>
+                    {% if decrypted_content.type == 'frequency_anomalies' %}
+                    <th>Запросов/сек</th>
+                    {% endif %}
+                    <th>Статус</th>
+                    <th>Причина</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in decrypted_content.events %}
+                <tr>
+                    <td>{{ e.timestamp }}</td>
+                    <td><strong>{{ e.user }}</strong></td>
+                    <td>{{ e.vm }}</td>
+                    <td>{{ e.action }}</td>
+                    {% if decrypted_content.type == 'frequency_anomalies' %}
+                    <td>{{ e.requests_per_second }}</td>
+                    {% endif %}
+                    <td>
+                        {% if e.result == 'ЗАБЛОКИРОВАНО' %}
+                        <span class="badge-blocked">ЗАБЛОКИРОВАНО</span>
+                        {% else %}
+                        <span class="badge-denied">ЗАПРЕЩЕНО</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ e.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="color:#9b8472; margin-top:8px;">В этом логе нет событий.</p>
+        {% endif %}
+    </div>
+    {% elif viewed_file and not decrypted_error %}
+    <div class="error-box">Файл не найден: {{ viewed_file }}</div>
+    {% endif %}
+
+</div>
+</body>
+</html>
