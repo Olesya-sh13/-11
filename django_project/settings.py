@@ -40,6 +40,13 @@ CSRF_TRUSTED_ORIGINS = [
 
 ALLOWED_HOSTS = ['*']
 
+# Replit proxies requests over HTTPS — cookies must be SameSite=None + Secure
+# so the browser sends them across the proxy domain boundary
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
 # Application definition
 
 INSTALLED_APPS = [
