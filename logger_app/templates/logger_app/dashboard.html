@@ -30,7 +30,6 @@
         .stat-number { font-size: 32px; font-weight: 800; color: #e67e22; }
         .stat-label { font-size: 13px; color: #7f6b54; }
 
-        /* Блок для двух колонок: пирог + злоумышленник (для admin) */
         .top-row {
             display: flex;
             gap: 24px;
@@ -48,7 +47,6 @@
         .chart-box h3 { text-align: center; margin-bottom: 15px; color: #4a3b2a; font-size: 16px; }
         .pie-wrapper { max-width: 260px; margin: 0 auto; }
 
-        /* Блок злоумышленника */
         .attacker-block {
             background: #fff4e8;
             border-left: 5px solid #e67e22;
@@ -60,7 +58,6 @@
         .attacker-list { list-style: none; padding-left: 0; margin-top: 8px; }
         .attacker-list li { margin-bottom: 6px; font-size: 14px; }
 
-        /* Таймлайн — всегда снизу, на всю ширину */
         .timeline-container {
             background: white;
             border-radius: 20px;
@@ -86,7 +83,6 @@
 <body>
 <div class="container">
 
-    <!-- Шапка -->
     <div class="user-header">
         <div class="user-info">
             <strong>👤 {{ username }}</strong>
@@ -98,19 +94,18 @@
             {% endif %}
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="{% url 'logger_app:event_log' %}" class="nav-link">📋 Журнал событий</a>
+            <a href="/logger/events/?t={{ token }}" class="nav-link">📋 Журнал событий</a>
             {% if is_admin %}
-                <a href="{% url 'logger_app:encrypted_logs' %}" class="nav-link">🔐 Шифрованные логи</a>
-                <a href="{% url 'logger_app:settings' %}" class="nav-link">⚙️ Настройки</a>
+                <a href="/logger/encrypted-logs/?t={{ token }}" class="nav-link">🔐 Шифрованные логи</a>
+                <a href="/logger/settings/?t={{ token }}" class="nav-link">⚙️ Настройки</a>
             {% endif %}
-            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">🚪 Выйти</a>
+            <a href="/logger/logout/?t={{ token }}" class="nav-link logout-link">🚪 Выйти</a>
         </div>
     </div>
 
     <h1>Контейнер журналирования событий доступа</h1>
     <div style="margin-bottom: 20px; color: #7a6242;">Мониторинг обращений к виртуальным машинам</div>
 
-    <!-- Статистика-числа -->
     <div class="stats-grid">
         <div class="stat-card"><div class="stat-number">{{ total_events }}</div><div class="stat-label">Всего событий</div></div>
         <div class="stat-card"><div class="stat-number" style="color:#3c9b5e;">{{ final_allowed }}</div><div class="stat-label">Разрешено</div></div>
@@ -120,7 +115,6 @@
     </div>
 
     {% if is_admin %}
-    <!-- ADMIN: слева — пирог, справа — злоумышленник -->
     <div class="top-row">
         <div class="chart-box">
             <h3>Соотношение доступа</h3>
@@ -145,21 +139,18 @@
     </div>
 
     {% else %}
-    <!-- ОБЫЧНЫЙ ПОЛЬЗОВАТЕЛЬ: только пирог, по центру -->
     <div class="chart-box" style="max-width:400px; margin: 20px auto;">
         <h3>Соотношение доступа</h3>
         <div class="pie-wrapper"><canvas id="pieChart"></canvas></div>
     </div>
     {% endif %}
 
-    <!-- Таблицы -->
     <h2>Статистика по пользователям</h2>
     <div class="table-wrapper">{{ user_stats|safe }}</div>
 
     <h2>Статистика по виртуальным машинам</h2>
     <div class="table-wrapper">{{ vm_stats|safe }}</div>
 
-    <!-- Таймлайн — всегда внизу, на всю ширину -->
     <div class="timeline-container">
         <h3>📈 Динамика обращений по времени</h3>
         <canvas id="timelineChart" style="max-height:300px;"></canvas>
@@ -168,7 +159,6 @@
 </div>
 
 <script>
-    // Круговая диаграмма
     new Chart(document.getElementById('pieChart'), {
         type: 'pie',
         data: {
@@ -186,7 +176,6 @@
         }
     });
 
-    // Таймлайн
     const timelineAllowedTimes  = {{ timeline.allowed.times|safe }};
     const timelineAllowedValues = {{ timeline.allowed.values|safe }};
     const timelineDeniedTimes   = {{ timeline.denied.times|safe }};

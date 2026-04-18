@@ -19,8 +19,8 @@
 <body>
 <div class="container">
     <h2> Настройки контейнера безопасности</h2>
-    <form method="post">
-        {% csrf_token %}
+    <form method="post" action="/logger/settings/?t={{ token }}">
+        <input type="hidden" name="t" value="{{ token }}">
         <div class="form-group">
             <label>Базовая частота (запросов в секунду):</label>
             <input type="number" name="base_frequency" value="{{ base_freq }}" min="1" step="1" required>
@@ -35,7 +35,7 @@
         </div>
         <button type="submit">Сохранить</button>
     </form>
-    <p><a href="{% url 'logger_app:dashboard' %}">← Назад на дашборд</a></p>
+    <p><a href="/logger/?t={{ token }}">← Назад на дашборд</a></p>
 </div>
 </body>
 </html>

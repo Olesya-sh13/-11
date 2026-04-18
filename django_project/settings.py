@@ -40,10 +40,18 @@ CSRF_TRUSTED_ORIGINS = [
 
 ALLOWED_HOSTS = ['*']
 
-# Replit proxies requests over HTTPS — cookies must be SameSite=None + Secure
-# so the browser sends them across the proxy domain boundary
+# Tell Django it's behind Replit's HTTPS proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+# Store the entire session in a signed cookie — avoids all proxy/cookie-domain issues
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
+# Cookie settings for Replit's iframe/proxy environment
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 86400  # 24 hours
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
 

@@ -64,24 +64,22 @@
 </head>
 <body>
 <div class="container">
-    <!-- Шапка -->
     <div class="user-header">
         <div class="user-info">
             <strong>👤 {{ username }}</strong>
             <span class="role-badge">{{ user_role }}</span>
         </div>
-        <div>
-            <a href="{% url 'logger_app:dashboard' %}" class="nav-link">← Дашборд</a>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="/logger/?t={{ token }}" class="nav-link">← Дашборд</a>
             {% if is_admin %}
-                <a href="{% url 'logger_app:settings' %}" class="nav-link">⚙️ Настройки</a>
+                <a href="/logger/settings/?t={{ token }}" class="nav-link">⚙️ Настройки</a>
             {% endif %}
-            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">🚪 Выйти</a>
+            <a href="/logger/logout/?t={{ token }}" class="nav-link logout-link">🚪 Выйти</a>
         </div>
     </div>
 
     <h1>Журнал событий доступа</h1>
 
-    <!-- Фильтры -->
     <div class="filter-form">
         {% if is_admin %}
         <div class="filter-group"><label>Пользователь</label><select id="userFilter"><option value="">Все</option>{% for u in all_users %}<option value="{{ u }}" {% if selected_user == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select></div>
@@ -91,13 +89,12 @@
         <div class="filter-group"><label>Виртуальная машина</label><select id="vmFilter"><option value="">Все</option>{% for v in all_vms %}<option value="{{ v }}" {% if selected_vm == v %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
         <div class="filter-group"><label>Результат</label><select id="resultFilter"><option value="">Все</option><option value="allowed" {% if selected_result == "allowed" %}selected{% endif %}>Разрешено</option><option value="denied" {% if selected_result == "denied" %}selected{% endif %}>Запрещено</option></select></div>
         <div class="filter-group"><button id="applyFilterBtn">Применить</button></div>
-        <div class="filter-group"><a href="{% url 'logger_app:event_log' %}" class="reset-link">Сбросить</a></div>
+        <div class="filter-group"><a href="/logger/events/?t={{ token }}" class="reset-link">Сбросить</a></div>
     </div>
     {% if not is_admin %}
     <p style="font-size:13px; color:#7a6242; margin-bottom:15px;">Отображаются все события доступа.</p>
     {% endif %}
 
-    <!-- Таблица событий -->
     <div class="table-wrapper">
         <table>
             <thead><tr><th>Время</th><th>Пользователь</th><th>Виртуальная машина</th><th>Операция</th><th>Результат</th><th>Причина</th></tr></thead>
@@ -118,29 +115,29 @@
         </table>
     </div>
 
-    <!-- Пагинация -->
     <div class="pagination">
         {% if page_obj.has_previous %}
-            <a href="?page=1&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">« Первая</a>
-            <a href="?page={{ page_obj.previous_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Назад</a>
+            <a href="?t={{ token }}&page=1&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">« Первая</a>
+            <a href="?t={{ token }}&page={{ page_obj.previous_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Назад</a>
         {% endif %}
         <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Вперёд</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Последняя »</a>
+            <a href="?t={{ token }}&page={{ page_obj.next_page_number }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Вперёд</a>
+            <a href="?t={{ token }}&page={{ page_obj.paginator.num_pages }}&user={{ selected_user }}&vm={{ selected_vm }}&result={{ selected_result }}">Последняя »</a>
         {% endif %}
     </div>
 </div>
 
 <script>
+    const TOKEN = "{{ token }}";
     document.getElementById('applyFilterBtn').onclick = () => {
         const user = document.getElementById('userFilter').value;
         const vm = document.getElementById('vmFilter').value;
         const result = document.getElementById('resultFilter').value;
-        let url = "?";
-        if (user) url += "user=" + encodeURIComponent(user) + "&";
-        if (vm) url += "vm=" + encodeURIComponent(vm) + "&";
-        if (result) url += "result=" + encodeURIComponent(result);
+        let url = "?t=" + encodeURIComponent(TOKEN);
+        if (user) url += "&user=" + encodeURIComponent(user);
+        if (vm) url += "&vm=" + encodeURIComponent(vm);
+        if (result) url += "&result=" + encodeURIComponent(result);
         window.location.href = url;
     };
 </script>

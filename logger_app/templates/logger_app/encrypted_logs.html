@@ -94,15 +94,14 @@
             <span class="role-badge">Администратор</span>
         </div>
         <div>
-            <a href="{% url 'logger_app:dashboard' %}" class="nav-link">← Дашборд</a>
-            <a href="{% url 'logger_app:logout' %}" class="nav-link logout-link">Выйти</a>
+            <a href="/logger/?t={{ token }}" class="nav-link">← Дашборд</a>
+            <a href="/logger/logout/?t={{ token }}" class="nav-link logout-link">Выйти</a>
         </div>
     </div>
 
     <h1>Зашифрованные логи безопасности</h1>
     <p class="subtitle">Раздел доступен только администратору — содержит чувствительные данные инцидентов</p>
 
-    <!-- Объяснение системы -->
     <div class="info-box">
         <h2>Как работает шифрование логов?</h2>
         <p>
@@ -140,7 +139,6 @@
         </div>
     </div>
 
-    <!-- Список файлов -->
     <div class="info-box" style="padding-bottom: 12px;">
         <h2 style="margin-bottom: 16px;">Зашифрованные файлы логов</h2>
         {% if files %}
@@ -152,7 +150,7 @@
                     <div class="file-meta">Создан: {{ file.modified }} &nbsp;·&nbsp; Размер: {{ file.size }} байт</div>
                     <div class="file-name-code">{{ file.name }}</div>
                 </div>
-                <a href="?view={{ file.name }}" class="btn-view {% if viewed_file == file.name %}btn-active{% endif %}">
+                <a href="?t={{ token }}&view={{ file.name }}" class="btn-view {% if viewed_file == file.name %}btn-active{% endif %}">
                     {% if viewed_file == file.name %}Открыт{% else %}Расшифровать{% endif %}
                 </a>
             </div>
@@ -163,7 +161,6 @@
         {% endif %}
     </div>
 
-    <!-- Расшифрованное содержимое -->
     {% if decrypted_error %}
     <div class="error-box">{{ decrypted_error }}</div>
     {% endif %}

@@ -1,20 +1,100 @@
 """
 Представления (контроллеры) для отображения страниц.
-Содержит логику аутентификации и разграничения прав доступа.
+Аутентификация через URL-токены (обходит ограничения cookies в iframe).
 """
 
 import json
+import secrets
+import time
 from pathlib import Path
 from datetime import datetime
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
-from django.contrib.auth import logout as auth_logout
-from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
 from .data.utils import run_security_simulation, generate_events
+from .models import User
 
 
+# ==================== ТОКЕН-ХРАНИЛИЩЕ ====================
+
+_TOKEN_STORE = {}
+TOKEN_TTL = 24 * 3600  # 24 часа
+
+
+def _generate_token(user):
+    token = secrets.token_urlsafe(32)
+    _TOKEN_STORE[token] = {'user_id': user.pk, 'expires': time.time() + TOKEN_TTL}
+    _cleanup_tokens()
+    return token
+
+
+def _get_user(token):
+    if not token:
+        return None
+    entry = _TOKEN_STORE.get(token)
+    if not entry:
+        return None
+    if time.time() > entry['expires']:
+        _TOKEN_STORE.pop(token, None)
+        return None
+    try:
+        return User.objects.get(pk=entry['user_id'])
+    except User.DoesNotExist:
+        return None
+
+
+def _invalidate_token(token):
+    _TOKEN_STORE.pop(token, None)
+
+
+def _cleanup_tokens():
+    now = time.time()
+    for k in [k for k, v in list(_TOKEN_STORE.items()) if now > v['expires']]:
+        del _TOKEN_STORE[k]
+
+
+def _get_token(request):
+    return request.GET.get('t') or request.POST.get('t') or ''
+
+
+# ==================== ДЕКОРАТОРЫ ====================
+
+def token_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        token = _get_token(request)
+        user = _get_user(token)
+        if user is None:
+            return redirect('/logger/login/')
+        request.auth_user = user
+        request.auth_token = token
+        return view_func(request, *args, **kwargs)
+    wrapper.__name__ = view_func.__name__
+    return wrapper
+
+
+def admin_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        token = _get_token(request)
+        user = _get_user(token)
+        if user is None:
+            return redirect('/logger/login/')
+        if not _is_admin(user):
+            return redirect(f'/logger/?t={token}')
+        request.auth_user = user
+        request.auth_token = token
+        return view_func(request, *args, **kwargs)
+    wrapper.__name__ = view_func.__name__
+    return wrapper
+
+
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+
+def _is_admin(user):
+    return user.role == 'admin' or user.is_superuser
+
+
+# ==================== ПРЕДСТАВЛЕНИЯ ====================
 
 @csrf_exempt
 def custom_login(request):
@@ -23,43 +103,34 @@ def custom_login(request):
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            auth_login(request, user)
-            return redirect('logger_app:dashboard')
+            token = _generate_token(user)
+            return redirect(f'/logger/?t={token}')
         else:
             return render(request, 'logger_app/login.html', {'error': 'Неверное имя пользователя или пароль'})
-    else:
-        return render(request, 'logger_app/login.html')
+    return render(request, 'logger_app/login.html')
 
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
-
-def is_admin(user):
-    """Проверка, является ли пользователь администратором"""
-    return user.role == 'admin' or user.is_superuser
-
-
-# ==================== ПРЕДСТАВЛЕНИЯ ====================
-
-@login_required(login_url='/logger/login/')
+@token_required
 def log_dashboard(request):
-    """Дашборд — полная статистика для всех авторизованных пользователей"""
     data = run_security_simulation()
-    user = request.user
+    user = request.auth_user
+    token = request.auth_token
 
     data['user_role'] = user.get_role_display()
-    data['is_admin'] = is_admin(user)
+    data['is_admin'] = _is_admin(user)
     data['username'] = user.username
+    data['token'] = token
 
     return render(request, 'logger_app/dashboard.html', data)
 
 
-@login_required(login_url='/logger/login/')
+@token_required
 def event_log(request):
-    """Журнал событий — все события для всех авторизованных пользователей"""
     df = generate_events()
     events = df.to_dict('records')
+    user = request.auth_user
+    token = request.auth_token
 
-    # Фильтрация (доступна всем)
     user_filter = request.GET.get('user', '')
     vm_filter = request.GET.get('vm', '')
     result_filter = request.GET.get('result', '')
@@ -72,13 +143,12 @@ def event_log(request):
         allowed = (result_filter == 'allowed')
         events = [e for e in events if e['final_allowed'] == allowed]
 
-    # Пагинация (20 записей на страницу)
     paginator = Paginator(events, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    all_users = sorted(set(e['user'] for e in events))
-    all_vms = sorted(set(e['vm'] for e in events))
+    all_users = sorted(set(e['user'] for e in df.to_dict('records')))
+    all_vms = sorted(set(e['vm'] for e in df.to_dict('records')))
 
     context = {
         'page_obj': page_obj,
@@ -87,100 +157,65 @@ def event_log(request):
         'selected_user': user_filter,
         'selected_vm': vm_filter,
         'selected_result': result_filter,
-        'user_role': request.user.get_role_display(),
-        'is_admin': is_admin(request.user),
-        'username': request.user.username,
+        'user_role': user.get_role_display(),
+        'is_admin': _is_admin(user),
+        'username': user.username,
+        'token': token,
     }
     return render(request, 'logger_app/event_log.html', context)
 
 
-@login_required(login_url='/logger/login/')
-@user_passes_test(is_admin, login_url='/logger/')
+@admin_required
 def view_encrypted_logs(request):
-    """Просмотр зашифрованных логов — ТОЛЬКО ДЛЯ АДМИНИСТРАТОРА"""
     from .encryption import encrypt_log, decrypt_log
 
+    user = request.auth_user
+    token = request.auth_token
     log_dir = Path(__file__).parent / "logs"
     log_dir.mkdir(exist_ok=True)
 
-    # Если зашифрованных файлов нет — генерируем их из текущей симуляции
     if not list(log_dir.glob("*.enc")):
         df = generate_events()
         now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-        # Лог 1: события злоумышленника
         attacker_df = df[df['user'] == 'Злоумышленник']
-        attacker_records = []
-        for _, row in attacker_df.iterrows():
-            attacker_records.append({
-                'timestamp': str(row['timestamp']),
-                'user': row['user'],
-                'vm': row['vm'],
-                'action': row['action'],
-                'result': 'ЗАПРЕЩЕНО',
-                'reason': row['final_reason'],
-            })
+        attacker_records = [{'timestamp': str(r['timestamp']), 'user': r['user'], 'vm': r['vm'],
+                              'action': r['action'], 'result': 'ЗАПРЕЩЕНО', 'reason': r['final_reason']}
+                             for _, r in attacker_df.iterrows()]
         log1 = json.dumps({'type': 'attacker_events', 'generated': str(datetime.now()), 'events': attacker_records}, ensure_ascii=False, indent=2)
         with open(log_dir / f'attacker_{now_str}.enc', 'w', encoding='utf-8') as f:
             f.write(encrypt_log(log1))
 
-        # Лог 2: нарушения политики (легитимные пользователи, запрещённые по политике)
         denied_df = df[(df['user'] != 'Злоумышленник') & (df['policy_allowed'] == False)]
-        denied_records = []
-        for _, row in denied_df.iterrows():
-            denied_records.append({
-                'timestamp': str(row['timestamp']),
-                'user': row['user'],
-                'vm': row['vm'],
-                'action': row['action'],
-                'result': 'ЗАПРЕЩЕНО',
-                'reason': row['policy_reason'],
-            })
+        denied_records = [{'timestamp': str(r['timestamp']), 'user': r['user'], 'vm': r['vm'],
+                            'action': r['action'], 'result': 'ЗАПРЕЩЕНО', 'reason': r['policy_reason']}
+                           for _, r in denied_df.iterrows()]
         log2 = json.dumps({'type': 'policy_violations', 'generated': str(datetime.now()), 'events': denied_records}, ensure_ascii=False, indent=2)
         with open(log_dir / f'policy_violations_{now_str}.enc', 'w', encoding='utf-8') as f:
             f.write(encrypt_log(log2))
 
-        # Лог 3: аномалии частоты
         anomaly_df = df[df['is_critical_anomaly'] == True]
-        anomaly_records = []
-        for _, row in anomaly_df.iterrows():
-            anomaly_records.append({
-                'timestamp': str(row['timestamp']),
-                'user': row['user'],
-                'vm': row['vm'],
-                'action': row['action'],
-                'requests_per_second': int(row['requests_per_second']),
-                'result': 'ЗАБЛОКИРОВАНО',
-                'reason': row['final_reason'],
-            })
+        anomaly_records = [{'timestamp': str(r['timestamp']), 'user': r['user'], 'vm': r['vm'],
+                             'action': r['action'], 'requests_per_second': int(r['requests_per_second']),
+                             'result': 'ЗАБЛОКИРОВАНО', 'reason': r['final_reason']}
+                            for _, r in anomaly_df.iterrows()]
         log3 = json.dumps({'type': 'frequency_anomalies', 'generated': str(datetime.now()), 'events': anomaly_records}, ensure_ascii=False, indent=2)
         with open(log_dir / f'anomalies_{now_str}.enc', 'w', encoding='utf-8') as f:
             f.write(encrypt_log(log3))
 
-    # Собираем список файлов
     encrypted_files = list(log_dir.glob("*.enc"))
+    type_labels = {'attacker': 'События злоумышленника', 'policy_violations': 'Нарушения политики', 'anomalies': 'Аномалии частоты'}
     files_info = []
-    type_labels = {
-        'attacker': 'События злоумышленника',
-        'policy_violations': 'Нарушения политики',
-        'anomalies': 'Аномалии частоты',
-    }
     for f in encrypted_files:
-        stem = f.stem
         label = f.name
         for key, rus in type_labels.items():
-            if stem.startswith(key):
+            if f.stem.startswith(key):
                 label = rus
                 break
-        files_info.append({
-            'name': f.name,
-            'label': label,
-            'size': f.stat().st_size,
-            'modified': datetime.fromtimestamp(f.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-        })
+        files_info.append({'name': f.name, 'label': label, 'size': f.stat().st_size,
+                            'modified': datetime.fromtimestamp(f.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')})
     files_info.sort(key=lambda x: x['modified'], reverse=True)
 
-    # Расшифровка выбранного файла
     file_to_view = request.GET.get('view')
     decrypted_content = None
     decrypted_error = None
@@ -201,46 +236,42 @@ def view_encrypted_logs(request):
         'decrypted_content': decrypted_content,
         'decrypted_error': decrypted_error,
         'viewed_file': file_to_view,
-        'username': request.user.username,
+        'username': user.username,
         'is_admin': True,
+        'token': token,
     }
     return render(request, 'logger_app/encrypted_logs.html', context)
 
 
-@login_required(login_url='/logger/login/')
-@user_passes_test(is_admin, login_url='/logger/')
+@admin_required
+@csrf_exempt
 def settings_view(request):
-    """Страница настроек (только для администратора)"""
     policy_path = Path(__file__).parent / "migrations" / "policy.json"
+    user = request.auth_user
+    token = request.auth_token
 
     if request.method == 'POST':
-        # Получаем новые значения из формы
         new_freq = int(request.POST.get('base_frequency', 2))
         new_percent = int(request.POST.get('minor_overhead', 20))
         new_block_sec = int(request.POST.get('block_seconds', 100))
 
-        # Загружаем текущую политику
         with open(policy_path, 'r', encoding='utf-8') as f:
             policy = json.load(f)
 
-        # Обновляем параметры
         policy['base_frequency_per_second'] = new_freq
         policy['minor_overhead_percent'] = new_percent
         policy['temporary_block_seconds'] = new_block_sec
 
-        # Сохраняем обратно
         with open(policy_path, 'w', encoding='utf-8') as f:
             json.dump(policy, f, ensure_ascii=False, indent=2)
 
-        # Логируем изменение
         log_dir = Path(__file__).parent / "logs"
         log_dir.mkdir(exist_ok=True)
         with open(log_dir / "audit.log", 'a', encoding='utf-8') as f:
-            f.write(f"{datetime.now().isoformat()} | Admin {request.user.username} | Changed params: freq={new_freq}, overhead={new_percent}, block_sec={new_block_sec}\n")
+            f.write(f"{datetime.now().isoformat()} | Admin {user.username} | freq={new_freq}, overhead={new_percent}, block_sec={new_block_sec}\n")
 
-        return redirect('logger_app:settings')
+        return redirect(f'/logger/settings/?t={token}')
 
-    # GET — показываем форму с текущими значениями
     with open(policy_path, 'r', encoding='utf-8') as f:
         policy = json.load(f)
 
@@ -248,10 +279,12 @@ def settings_view(request):
         'base_freq': policy.get('base_frequency_per_second', 2),
         'minor_overhead': policy.get('minor_overhead_percent', 20),
         'block_sec': policy.get('temporary_block_seconds', 100),
+        'token': token,
     }
     return render(request, 'logger_app/settings.html', context)
 
 
 def logout_view(request):
-    auth_logout(request)
+    token = _get_token(request)
+    _invalidate_token(token)
     return redirect('/logger/login/')
