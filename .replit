@@ -16,11 +16,11 @@ deploymentTarget = "gce"
 
 [[ports]]
 localPort = 3000
-externalPort = 80
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
-externalPort = 80
+externalPort = 5000
 
 [agent]
 expertMode = true
@@ -43,7 +43,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 120 django_project.wsgi:application"
+args = "gunicorn -c gunicorn.conf.py django_project.wsgi:application"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
