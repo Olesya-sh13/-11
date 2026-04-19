@@ -243,8 +243,8 @@ def view_encrypted_logs(request):
     return render(request, 'logger_app/encrypted_logs.html', context)
 
 
-@admin_required
 @csrf_exempt
+@admin_required
 def settings_view(request):
     policy_path = Path(__file__).parent / "migrations" / "policy.json"
     user = request.auth_user
