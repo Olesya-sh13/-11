@@ -3,21 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title>Зашифрованные логи — только для администратора</title>
+
     <style>
+        /* Сброс отступов и единая модель блоков */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Светлый тёплый фон страницы */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+
+        /* Центрирующий контейнер */
         .container { max-width: 1200px; margin: 0 auto; }
 
+        /* Шапка: имя администратора и навигационные кнопки */
         .user-header {
             display: flex; justify-content: space-between; align-items: center;
             background: white; padding: 15px 20px; border-radius: 20px;
             margin-bottom: 25px; border: 1px solid #ffebd2;
         }
         .user-info { display: flex; align-items: center; gap: 15px; }
+
+        /* Бейдж «Администратор» в шапке */
         .role-badge { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+
+        /* Ссылки-кнопки навигации */
         .nav-link { background: #ffd6b3; padding: 8px 18px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 14px; margin-left: 8px; }
         .logout-link { background: #ffe0c4; }
 
+        /* Белая информационная карточка (использована для объяснения и списка файлов) */
         .info-box {
             background: white; border-radius: 20px; padding: 24px;
             border: 1px solid #ffebd2; margin-bottom: 24px;
@@ -26,55 +38,82 @@
         .info-box p { color: #6b5540; font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
         .info-box p:last-child { margin-bottom: 0; }
 
+        /* Горизонтальный ряд из шагов «Как работает шифрование» */
         .how-it-works {
             display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px;
         }
+
+        /* Одна карточка-шаг с номером, заголовком и описанием */
         .step {
             flex: 1; min-width: 180px; background: #fef7ee;
             border: 1px solid #ffdfc4; border-radius: 14px;
             padding: 16px; text-align: center;
         }
+        /* Большой оранжевый номер шага */
         .step-num { font-size: 26px; font-weight: 800; color: #e67e22; }
         .step-title { font-weight: 600; color: #4a3b2a; margin: 6px 0 4px; font-size: 14px; }
         .step-desc { font-size: 12px; color: #7a6242; line-height: 1.5; }
 
+        /* Список карточек зашифрованных файлов */
         .files-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+
+        /* Карточка одного файла: имя, метаданные и кнопка «Расшифровать» */
         .file-card {
             background: white; border-radius: 16px; border: 1px solid #ffebd2;
             padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
             flex-wrap: wrap; gap: 12px;
         }
+        /* Активная карточка (файл открыт) — оранжевая рамка */
         .file-card.active { border-color: #e67e22; background: #fff8f0; }
+
         .file-info { display: flex; flex-direction: column; gap: 4px; }
         .file-label { font-weight: 600; color: #4a3b2a; font-size: 15px; }
         .file-meta { font-size: 12px; color: #9b8472; }
+
+        /* Имя файла в моноширинном шрифте с жёлтым фоном */
         .file-name-code { font-family: monospace; font-size: 12px; color: #b07030; background: #ffeee0; padding: 2px 8px; border-radius: 6px; display: inline-block; margin-top: 2px; }
+
+        /* Кнопка «Расшифровать» / «Открыт» */
         .btn-view { background: #ffd6b3; border: none; padding: 8px 18px; border-radius: 30px; color: #5a3e2a; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; }
         .btn-view:hover { background: #ffc48a; }
+
+        /* Активное состояние кнопки: файл уже открыт — оранжевый фон */
         .btn-active { background: #e67e22; color: white; }
 
+        /* Блок с расшифрованным содержимым выбранного файла */
         .decrypted-box {
             background: white; border-radius: 20px; border: 2px solid #e67e22;
             padding: 24px; margin-bottom: 24px;
         }
         .decrypted-box h3 { color: #b45f2a; margin-bottom: 16px; font-size: 16px; }
+
+        /* Таблица расшифрованных событий */
         .event-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .event-table th { background: #ffecd9; padding: 10px 12px; text-align: left; font-weight: 600; color: #4a3b2a; }
         .event-table td { padding: 9px 12px; border-bottom: 1px solid #f7e6d4; color: #5a4030; }
         .event-table tr:hover td { background: #fff7ef; }
+
+        /* Бейдж статуса «ЗАПРЕЩЕНО» — красноватый */
         .badge-denied { background: #ffe6e5; color: #bc3f2e; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+        /* Бейдж статуса «ЗАБЛОКИРОВАНО» — оранжеватый */
         .badge-blocked { background: #fff0d9; color: #b45f2a; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+        /* Строка с тегами-метаданными над таблицей (тип лога, дата, количество событий) */
         .meta-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
         .meta-tag { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 12px; color: #7a5030; }
 
+        /* Блок сообщения об ошибке (красный фон) */
         .error-box { background: #ffe6e5; color: #bc3f2e; padding: 16px 20px; border-radius: 14px; font-size: 14px; }
 
+        /* Превью зашифрованного содержимого файла (нечитаемый Base64-текст) */
         .encrypted-preview {
             background: #f5f0e8; border-radius: 12px; padding: 14px 18px;
             font-family: monospace; font-size: 11px; color: #9b7040;
             word-break: break-all; line-height: 1.6; max-height: 80px; overflow: hidden;
             position: relative;
         }
+        /* Градиент-затемнение внизу превью, чтобы обозначить обрезанный контент */
         .encrypted-preview::after {
             content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
             background: linear-gradient(transparent, #f5f0e8);
@@ -88,9 +127,10 @@
 <body>
 <div class="container">
 
+    <!-- ======= ШАПКА: имя администратора и навигация ======= -->
     <div class="user-header">
         <div class="user-info">
-            <strong> {{ username }}</strong>
+            <strong>🔐 {{ username }}</strong>
             <span class="role-badge">Администратор</span>
         </div>
         <div>
@@ -102,6 +142,7 @@
     <h1>Зашифрованные логи безопасности</h1>
     <p class="subtitle">Раздел доступен только администратору — содержит чувствительные данные инцидентов</p>
 
+    <!-- ======= ИНФОРМАЦИОННЫЙ БЛОК: объяснение алгоритма шифрования ======= -->
     <div class="info-box">
         <h2>Как работает шифрование логов?</h2>
         <p>
@@ -115,6 +156,8 @@
             из библиотеки <code>cryptography</code>. Ключ хранится отдельно от данных и никогда не передаётся
             по сети. Расшифровка возможна только из этого защищённого административного интерфейса.
         </p>
+
+        <!-- Четыре шага жизненного цикла зашифрованного события -->
         <div class="how-it-works">
             <div class="step">
                 <div class="step-num">1</div>
@@ -139,18 +182,24 @@
         </div>
     </div>
 
+    <!-- ======= СПИСОК ЗАШИФРОВАННЫХ ФАЙЛОВ =======
+         files — список объектов {name, label, modified, size}, переданный из views.py -->
     <div class="info-box" style="padding-bottom: 12px;">
         <h2 style="margin-bottom: 16px;">Зашифрованные файлы логов</h2>
         {% if files %}
         <div class="files-grid">
             {% for file in files %}
+            <!-- Карточка файла; класс "active" добавляется, если файл уже открыт для просмотра -->
             <div class="file-card {% if viewed_file == file.name %}active{% endif %}">
                 <div class="file-info">
                     <div class="file-label">{{ file.label }}</div>
                     <div class="file-meta">Создан: {{ file.modified }} &nbsp;·&nbsp; Размер: {{ file.size }} байт</div>
+                    <!-- Имя файла в моноширинном стиле (например: attacker_events.enc) -->
                     <div class="file-name-code">{{ file.name }}</div>
                 </div>
-                <a href="?t={{ token }}&view={{ file.name }}" class="btn-view {% if viewed_file == file.name %}btn-active{% endif %}">
+                <!-- Кнопка расшифровки: передаёт имя файла через GET-параметр ?view= -->
+                <a href="?t={{ token }}&view={{ file.name }}"
+                   class="btn-view {% if viewed_file == file.name %}btn-active{% endif %}">
                     {% if viewed_file == file.name %}Открыт{% else %}Расшифровать{% endif %}
                 </a>
             </div>
@@ -161,18 +210,24 @@
         {% endif %}
     </div>
 
+    <!-- Блок ошибки расшифровки (например, повреждённый файл или неверный ключ) -->
     {% if decrypted_error %}
     <div class="error-box">{{ decrypted_error }}</div>
     {% endif %}
 
+    <!-- ======= РАСШИФРОВАННОЕ СОДЕРЖИМОЕ ФАЙЛА =======
+         Показывается только если администратор нажал «Расшифровать» и данные успешно извлечены. -->
     {% if decrypted_content %}
     <div class="decrypted-box">
         <h3>Расшифрованное содержимое файла: {{ viewed_file }}</h3>
+
+        <!-- Метаданные лога: тип событий, время генерации, количество записей -->
         <div class="meta-row">
             <span class="meta-tag">Тип: {{ decrypted_content.type }}</span>
             <span class="meta-tag">Сгенерирован: {{ decrypted_content.generated }}</span>
             <span class="meta-tag">Событий: {{ decrypted_content.events|length }}</span>
         </div>
+
         {% if decrypted_content.events %}
         <div style="overflow-x:auto;">
         <table class="event-table">
@@ -182,6 +237,7 @@
                     <th>Пользователь</th>
                     <th>Виртуальная машина</th>
                     <th>Операция</th>
+                    <!-- Колонка «Запросов/сек» добавляется только для логов аномалий частоты -->
                     {% if decrypted_content.type == 'frequency_anomalies' %}
                     <th>Запросов/сек</th>
                     {% endif %}
@@ -199,6 +255,7 @@
                     {% if decrypted_content.type == 'frequency_anomalies' %}
                     <td>{{ e.requests_per_second }}</td>
                     {% endif %}
+                    <!-- Бейдж статуса: ЗАБЛОКИРОВАНО (временная блокировка) или ЗАПРЕЩЕНО (разовый отказ) -->
                     <td>
                         {% if e.result == 'ЗАБЛОКИРОВАНО' %}
                         <span class="badge-blocked">ЗАБЛОКИРОВАНО</span>
@@ -216,6 +273,8 @@
         <p style="color:#9b8472; margin-top:8px;">В этом логе нет событий.</p>
         {% endif %}
     </div>
+
+    <!-- Сообщение если файл указан, но не найден на диске -->
     {% elif viewed_file and not decrypted_error %}
     <div class="error-box">Файл не найден: {{ viewed_file }}</div>
     {% endif %}

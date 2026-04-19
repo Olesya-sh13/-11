@@ -3,12 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <title>Контейнер журналирования событий доступа</title>
+
+    <!-- Подключаем библиотеку Chart.js для построения графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
+        /* Сброс отступов и задание единой модели блоков для всех элементов */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Основной фон страницы и шрифт */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+
+        /* Центрирующий контейнер с максимальной шириной */
         .container { max-width: 1300px; margin: 0 auto; }
 
+        /* Шапка с именем пользователя и кнопками навигации */
         .user-header {
             display: flex;
             justify-content: space-between;
@@ -19,17 +28,34 @@
             margin-bottom: 25px;
             border: 1px solid #ffebd2;
         }
+        /* Блок с именем пользователя и его ролью */
         .user-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+
+        /* Бейдж с названием роли (например, «Администратор») */
         .role-badge { background: #ffecd9; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+
+        /* Бейдж уровня доступа (полный / ограниченный) */
         .access-badge { background: #ffd6b3; padding: 5px 12px; border-radius: 20px; font-size: 13px; }
+
+        /* Ссылка-кнопка в навигационной шапке */
         .nav-link { background: #ffd6b3; padding: 8px 18px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 14px; }
+
+        /* Кнопка выхода — чуть светлее остальных */
         .logout-link { background: #ffe0c4; }
 
+        /* Сетка карточек со сводной статистикой вверху страницы */
         .stats-grid { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+
+        /* Одна карточка с числом и подписью */
         .stat-card { background: white; border-radius: 20px; padding: 20px; flex: 1; min-width: 130px; text-align: center; border: 1px solid #ffebd2; }
+
+        /* Большое число в карточке статистики */
         .stat-number { font-size: 32px; font-weight: 800; color: #e67e22; }
+
+        /* Подпись под числом */
         .stat-label { font-size: 13px; color: #7f6b54; }
 
+        /* Строка из двух блоков: круговой график и информация о злоумышленнике */
         .top-row {
             display: flex;
             gap: 24px;
@@ -38,6 +64,7 @@
         }
         .top-row .chart-box { flex: 1; }
 
+        /* Белый блок-карточка для графика */
         .chart-box {
             background: white;
             border-radius: 20px;
@@ -45,8 +72,11 @@
             border: 1px solid #ffebd2;
         }
         .chart-box h3 { text-align: center; margin-bottom: 15px; color: #4a3b2a; font-size: 16px; }
+
+        /* Ограничиваем ширину круговой диаграммы, чтобы она не растягивалась */
         .pie-wrapper { max-width: 260px; margin: 0 auto; }
 
+        /* Блок предупреждения о нелегитимном пользователе */
         .attacker-block {
             background: #fff4e8;
             border-left: 5px solid #e67e22;
@@ -55,9 +85,12 @@
             height: 100%;
         }
         .attacker-title { font-weight: 700; margin-bottom: 12px; color: #b45f2a; font-size: 15px; }
+
+        /* Список попыток злоумышленника по виртуальным машинам */
         .attacker-list { list-style: none; padding-left: 0; margin-top: 8px; }
         .attacker-list li { margin-bottom: 6px; font-size: 14px; }
 
+        /* Контейнер для линейного графика динамики по времени */
         .timeline-container {
             background: white;
             border-radius: 20px;
@@ -67,6 +100,7 @@
         }
         .timeline-container h3 { text-align: center; margin-bottom: 20px; color: #4a3b2a; font-size: 16px; }
 
+        /* Обёртка для таблиц с горизонтальной прокруткой на маленьких экранах */
         .table-wrapper { overflow-x: auto; background: white; border-radius: 16px; margin: 20px 0; padding: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { background: #ffecd9; padding: 12px; text-align: left; font-weight: 600; }
@@ -75,6 +109,7 @@
 
         h2 { font-size: 20px; margin-top: 20px; margin-bottom: 10px; color: #4a3b2a; }
 
+        /* На узких экранах (мобильных) блоки складываются в столбец */
         @media (max-width: 700px) {
             .top-row { flex-direction: column; }
         }
@@ -83,10 +118,12 @@
 <body>
 <div class="container">
 
+    <!-- ======= ШАПКА: имя пользователя, роль и кнопки навигации ======= -->
     <div class="user-header">
         <div class="user-info">
             <strong>👤 {{ username }}</strong>
             <span class="role-badge">{{ user_role }}</span>
+            <!-- Уровень доступа зависит от роли: администратор видит всё -->
             {% if is_admin %}
                 <span class="access-badge">🔑 Полный доступ</span>
             {% else %}
@@ -95,6 +132,7 @@
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a href="/logger/events/?t={{ token }}" class="nav-link">📋 Журнал событий</a>
+            <!-- Дополнительные ссылки видны только администратору -->
             {% if is_admin %}
                 <a href="/logger/encrypted-logs/?t={{ token }}" class="nav-link">🔐 Шифрованные логи</a>
                 <a href="/logger/settings/?t={{ token }}" class="nav-link">⚙️ Настройки</a>
@@ -106,6 +144,7 @@
     <h1>Контейнер журналирования событий доступа</h1>
     <div style="margin-bottom: 20px; color: #7a6242;">Мониторинг обращений к виртуальным машинам</div>
 
+    <!-- ======= СВОДНАЯ СТАТИСТИКА: пять карточек с ключевыми числами ======= -->
     <div class="stats-grid">
         <div class="stat-card"><div class="stat-number">{{ total_events }}</div><div class="stat-label">Всего событий</div></div>
         <div class="stat-card"><div class="stat-number" style="color:#3c9b5e;">{{ final_allowed }}</div><div class="stat-label">Разрешено</div></div>
@@ -114,10 +153,13 @@
         <div class="stat-card"><div class="stat-number">{{ critical_anomaly_events }}</div><div class="stat-label">Критических аномалий</div></div>
     </div>
 
+    <!-- ======= ВЕРХНИЙ РЯД: круговой график + блок злоумышленника ======= -->
     {% if is_admin %}
+    <!-- Для администратора: круговая диаграмма слева, информация о злоумышленнике справа -->
     <div class="top-row">
         <div class="chart-box">
             <h3>Соотношение доступа</h3>
+            <!-- Холст для круговой диаграммы «Разрешено / Запрещено» -->
             <div class="pie-wrapper"><canvas id="pieChart"></canvas></div>
         </div>
         <div class="chart-box" style="flex:1;">
@@ -126,6 +168,7 @@
                 <div style="margin-bottom:10px;">Всего попыток доступа: <strong>{{ attacker_count }}</strong></div>
                 {% if attacker_by_vm %}
                     <div style="font-weight:600; margin-bottom:6px; color:#7a6242;">По виртуальным машинам:</div>
+                    <!-- Цикл по словарю {название_ВМ: количество_попыток} -->
                     <ul class="attacker-list">
                         {% for vm, count in attacker_by_vm.items %}
                             <li>• {{ vm }} — <strong>{{ count }}</strong> раз</li>
@@ -139,26 +182,34 @@
     </div>
 
     {% else %}
+    <!-- Для обычных пользователей: только круговая диаграмма, без блока злоумышленника -->
     <div class="chart-box" style="max-width:400px; margin: 20px auto;">
         <h3>Соотношение доступа</h3>
         <div class="pie-wrapper"><canvas id="pieChart"></canvas></div>
     </div>
     {% endif %}
 
+    <!-- ======= ТАБЛИЦЫ СТАТИСТИКИ ======= -->
+    <!-- Статистика по пользователям: сколько разрешено/запрещено у каждого -->
     <h2>Статистика по пользователям</h2>
     <div class="table-wrapper">{{ user_stats|safe }}</div>
 
+    <!-- Статистика по виртуальным машинам: нагрузка и нарушения по каждой ВМ -->
     <h2>Статистика по виртуальным машинам</h2>
     <div class="table-wrapper">{{ vm_stats|safe }}</div>
 
+    <!-- ======= ЛИНЕЙНЫЙ ГРАФИК ДИНАМИКИ ПО ВРЕМЕНИ ======= -->
     <div class="timeline-container">
         <h3>📈 Динамика обращений по времени</h3>
+        <!-- Холст для линейного графика — Chart.js заполнит его через JavaScript ниже -->
         <canvas id="timelineChart" style="max-height:300px;"></canvas>
     </div>
 
 </div>
 
 <script>
+    // ======= КРУГОВАЯ ДИАГРАММА «РАЗРЕШЕНО / ЗАПРЕЩЕНО» =======
+    // Данные приходят из Django-контекста через шаблонные переменные
     new Chart(document.getElementById('pieChart'), {
         type: 'pie',
         data: {
@@ -176,20 +227,45 @@
         }
     });
 
+    // ======= ЛИНЕЙНЫЙ ГРАФИК ДИНАМИКИ ПО ВРЕМЕНИ =======
+
+    // Массивы временны́х меток и значений для разрешённых событий
     const timelineAllowedTimes  = {{ timeline.allowed.times|safe }};
     const timelineAllowedValues = {{ timeline.allowed.values|safe }};
+
+    // Массивы временны́х меток и значений для запрещённых событий
     const timelineDeniedTimes   = {{ timeline.denied.times|safe }};
     const timelineDeniedValues  = {{ timeline.denied.values|safe }};
 
+    // Объединяем обе временны́е оси в единый отсортированный список меток,
+    // чтобы на графике отображались ВСЕ секунды, включая те,
+    // где были только запрещённые события (без разрешённых).
+    const allTimesSet = new Set([...timelineAllowedTimes, ...timelineDeniedTimes]);
+    const allTimes = Array.from(allTimesSet).sort();
+
+    // Строим словари {время → количество} для быстрого поиска значения по метке
+    const allowedMap = Object.fromEntries(
+        timelineAllowedTimes.map((t, i) => [t, timelineAllowedValues[i]])
+    );
+    const deniedMap = Object.fromEntries(
+        timelineDeniedTimes.map((t, i) => [t, timelineDeniedValues[i]])
+    );
+
+    // Формируем финальные массивы значений для каждой метки объединённой оси.
+    // Если в данную секунду событий данного типа не было — подставляем 0.
+    const mergedAllowed = allTimes.map(t => allowedMap[t] || 0);
+    const mergedDenied  = allTimes.map(t => deniedMap[t]  || 0);
+
+    // Создаём линейный график на объединённой оси времени
     const lineCtx = document.getElementById('timelineChart').getContext('2d');
     new Chart(lineCtx, {
         type: 'line',
         data: {
-            labels: timelineAllowedTimes,
+            labels: allTimes,           // единая ось X со всеми секундами
             datasets: [
                 {
                     label: 'Разрешено',
-                    data: timelineAllowedValues,
+                    data: mergedAllowed,
                     borderColor: '#4CAF50',
                     backgroundColor: 'rgba(76, 175, 80, 0.1)',
                     fill: true,
@@ -197,7 +273,7 @@
                 },
                 {
                     label: 'Запрещено',
-                    data: timelineDeniedValues,
+                    data: mergedDenied,
                     borderColor: '#f44336',
                     backgroundColor: 'rgba(244, 67, 54, 0.1)',
                     fill: true,
@@ -212,6 +288,7 @@
                 y: { title: { display: true, text: 'Количество событий' }, beginAtZero: true }
             },
             plugins: {
+                // При наведении показываем значения обоих рядов одновременно
                 tooltip: { mode: 'index', intersect: false }
             }
         }

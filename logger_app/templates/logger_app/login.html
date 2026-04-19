@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Вход в систему безопасности</title>
+
     <style>
+        /* Сброс отступов и единая модель блоков */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Страница входа: светлый фон, форма точно по центру экрана */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #fef7e8;
@@ -13,6 +17,8 @@
             align-items: center;
             min-height: 100vh;
         }
+
+        /* Белая карточка формы входа */
         .login-container {
             background: white;
             padding: 40px;
@@ -22,10 +28,18 @@
             max-width: 450px;
             border: 1px solid #ffebd2;
         }
+
         h1 { color: #2c2b28; margin-bottom: 8px; font-size: 24px; }
+
+        /* Подзаголовок-подсказка под основным заголовком */
         .subtitle { color: #7a6242; margin-bottom: 30px; font-size: 14px; }
+
+        /* Группа поля: отступ между полем «Логин» и полем «Пароль» */
         .form-group { margin-bottom: 20px; }
+
         label { display: block; margin-bottom: 8px; color: #5a3e2a; font-weight: 500; }
+
+        /* Поля ввода: одинаковый стиль для логина и пароля */
         input {
             width: 100%;
             padding: 12px;
@@ -34,6 +48,8 @@
             font-size: 14px;
             background: #fefdf9;
         }
+
+        /* Кнопка «Войти» на всю ширину карточки */
         button {
             width: 100%;
             padding: 12px;
@@ -46,6 +62,8 @@
             cursor: pointer;
         }
         button:hover { background: #ffc48a; }
+
+        /* Блок ошибки (неверный логин/пароль) — красноватый фон */
         .error {
             background: #ffe6e5;
             color: #bc3f2e;
@@ -54,6 +72,8 @@
             margin-bottom: 20px;
             font-size: 14px;
         }
+
+        /* Блок со справочными учётными данными под формой */
         .info {
             margin-top: 25px;
             font-size: 12px;
@@ -61,33 +81,42 @@
             border-top: 1px solid #ffebd2;
             padding-top: 15px;
         }
+
+        /* Таблица тестовых аккаунтов */
         table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px; }
         td, th { padding: 6px; text-align: left; }
         tr { border-bottom: 1px solid #ffebd2; }
     </style>
 </head>
 <body>
+    <!-- ======= КАРТОЧКА ВХОДА ======= -->
     <div class="login-container">
-        <h1> Контейнер безопасности</h1>
+        <h1>🔒 Контейнер безопасности</h1>
         <div class="subtitle">Введите учётные данные для доступа к журналу событий</div>
 
+        <!-- Ошибка авторизации: показывается, если Django вернул ошибки формы -->
         {% if form.errors %}
-            <div class="error"> Неверное имя пользователя или пароль</div>
+            <div class="error">⚠️ Неверное имя пользователя или пароль</div>
         {% endif %}
 
+        <!-- Форма входа: POST на тот же URL.
+             Django требует {% csrf_token %} для защиты от межсайтовых подделок запросов. -->
         <form method="post">
             {% csrf_token %}
             <div class="form-group">
                 <label>Имя пользователя</label>
+                <!-- autofocus — курсор сразу попадает в это поле при загрузке страницы -->
                 <input type="text" name="username" autofocus required>
             </div>
             <div class="form-group">
                 <label>Пароль</label>
+                <!-- type="password" скрывает вводимые символы -->
                 <input type="password" name="password" required>
             </div>
             <button type="submit">Войти</button>
         </form>
 
+        <!-- Справочная таблица тестовых аккаунтов (для демонстрации системы) -->
         <div class="info">
             <strong>Тестовые учётные записи:</strong>
             <table>

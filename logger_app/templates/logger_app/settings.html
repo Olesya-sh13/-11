@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <title>Настройки безопасности</title>
+
     <style>
+        /* Сброс отступов и единая модель блоков */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Светлый тёплый фон страницы */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef7e8; padding: 30px; }
+
+        /* Центрирующий контейнер: страница настроек узкая — 680px достаточно */
         .container { max-width: 680px; margin: 0 auto; }
 
+        /* Шапка с названием раздела и навигационными кнопками */
         .user-header {
             display: flex; justify-content: space-between; align-items: center;
             background: white; padding: 12px 20px; border-radius: 20px;
             margin-bottom: 25px; border: 1px solid #ffebd2;
         }
+
+        /* Ссылки-кнопки в шапке (Дашборд и Выйти) */
         .nav-link { background: #ffd6b3; padding: 6px 16px; border-radius: 30px; text-decoration: none; color: #5a3e2a; font-weight: 500; font-size: 13px; }
         .logout-link { background: #ffe0c4; margin-left: 8px; }
 
+        /* Белая карточка — контейнер для формы или информационного блока */
         .card {
             background: white; border-radius: 20px; padding: 28px;
             border: 1px solid #ffebd2; margin-bottom: 20px;
@@ -23,9 +33,16 @@
         .card h2 { color: #2c2b28; margin-bottom: 6px; font-size: 20px; }
         .card .subtitle { color: #9b8472; font-size: 13px; margin-bottom: 22px; }
 
+        /* Отступ между полями формы */
         .form-group { margin-bottom: 20px; }
+
+        /* Подпись поля: жирная и коричневатая */
         label { display: block; margin-bottom: 6px; font-weight: 600; color: #5a3e2a; font-size: 14px; }
+
+        /* Подсказка под подписью: небольшой серый текст */
         .hint { font-size: 12px; color: #9b8472; margin-bottom: 6px; }
+
+        /* Поля числового ввода */
         input[type=number] {
             width: 100%; padding: 10px 14px; border: 1px solid #ffdbbc;
             border-radius: 12px; font-size: 15px; font-family: inherit;
@@ -33,6 +50,7 @@
         }
         input[type=number]:focus { outline: none; border-color: #e67e22; background: white; }
 
+        /* Кнопка сохранения настроек */
         .btn-save {
             background: #e67e22; color: white; padding: 12px 28px;
             border: none; border-radius: 30px; cursor: pointer;
@@ -41,27 +59,37 @@
         }
         .btn-save:hover { background: #cf6d17; }
 
- 
+        /* Карточка с текущими эффективными порогами (обновляется в реальном времени через JS) */
         .thresholds-card {
             background: #fff8f0; border-radius: 20px; padding: 22px 26px;
             border: 2px solid #ffd6b3; margin-bottom: 20px;
         }
         .thresholds-card h3 { color: #b45f2a; font-size: 15px; margin-bottom: 14px; }
+
+        /* Сетка из трёх блоков: базовая частота, критический порог, время блокировки */
         .threshold-grid { display: flex; gap: 12px; flex-wrap: wrap; }
         .threshold-item {
             flex: 1; min-width: 140px; background: white; border-radius: 14px;
             padding: 14px 16px; border: 1px solid #ffdfc4; text-align: center;
         }
-        .threshold-value { font-size: 28px; font-weight: 800; color: #e67e22; }
-        .threshold-label { font-size: 12px; color: #9b8472; margin-top: 4px; line-height: 1.4; }
-        .threshold-item.critical .threshold-value { color: #c0392b; }
-        .threshold-item.block .threshold-value { color: #8e44ad; }
 
+        /* Большое число — значение порога */
+        .threshold-value { font-size: 28px; font-weight: 800; color: #e67e22; }
+
+        /* Подпись под числом */
+        .threshold-label { font-size: 12px; color: #9b8472; margin-top: 4px; line-height: 1.4; }
+
+        /* Цветовая акцентировка: критический порог — красный, блокировка — фиолетовый */
+        .threshold-item.critical .threshold-value { color: #c0392b; }
+        .threshold-item.block    .threshold-value { color: #8e44ad; }
+
+        /* Зелёное уведомление об успешном сохранении */
         .saved-notice {
             background: #e8f8ee; border: 1px solid #7dc898; color: #2b6e3c;
             border-radius: 12px; padding: 10px 16px; font-size: 14px;
             margin-bottom: 16px; display: none;
         }
+        /* Класс .show делает уведомление видимым (добавляется через Django-шаблон) */
         .saved-notice.show { display: block; }
 
         a.back-link { color: #5a3e2a; font-size: 14px; text-decoration: none; }
@@ -70,6 +98,8 @@
 </head>
 <body>
 <div class="container">
+
+    <!-- ======= ШАПКА ======= -->
     <div class="user-header">
         <strong>⚙️ Настройки безопасности</strong>
         <div>
@@ -78,22 +108,30 @@
         </div>
     </div>
 
+    <!-- Уведомление об успешном сохранении.
+         Django добавляет ?saved=1 в URL после POST, контекстная переменная saved=True
+         — тогда к классу добавляется .show и блок становится виден. -->
     {% if saved %}
     <div class="saved-notice show">✅ Параметры сохранены и применены к расчётам.</div>
     {% endif %}
 
-
+    <!-- ======= БЛОК ТЕКУЩИХ ПОРОГОВ =======
+         Значения обновляются в реальном времени через JavaScript (без перезагрузки страницы)
+         по мере ввода новых цифр в форму ниже. -->
     <div class="thresholds-card">
         <h3>📊 Текущие эффективные пороги (применяются в расчётах)</h3>
         <div class="threshold-grid">
+            <!-- id="display_base" — сюда JavaScript подставляет значение из поля ввода -->
             <div class="threshold-item">
                 <div class="threshold-value" id="display_base">{{ base_freq }}</div>
                 <div class="threshold-label">Базовая частота<br>(запросов/сек)</div>
             </div>
+            <!-- Критический порог = ⌈ базовая × (1 + overhead / 100) ⌉ -->
             <div class="threshold-item critical">
                 <div class="threshold-value" id="display_critical">{{ critical_threshold }}</div>
                 <div class="threshold-label">Порог критической<br>аномалии (запросов/сек)</div>
             </div>
+            <!-- Время блокировки пользователя при критической аномалии -->
             <div class="threshold-item block">
                 <div class="threshold-value" id="display_block">{{ block_sec }}</div>
                 <div class="threshold-label">Время блокировки<br>(секунд)</div>
@@ -105,30 +143,38 @@
         </p>
     </div>
 
-   
+    <!-- ======= ФОРМА ИЗМЕНЕНИЯ ПАРАМЕТРОВ ======= -->
     <div class="card">
         <h2>Параметры контейнера безопасности</h2>
         <p class="subtitle">Изменения вступают в силу немедленно — следующий расчёт на дашборде использует новые значения.</p>
 
+        <!-- POST на этот же URL; токен передаётся и в query string, и в скрытом поле,
+             чтобы декоратор @admin_required смог его прочитать при обработке формы. -->
         <form method="post" action="/logger/settings/?t={{ token }}">
             <input type="hidden" name="t" value="{{ token }}">
 
+            <!-- Поле 1: базовая частота (запросов/сек) — нижняя граница нормы -->
             <div class="form-group">
                 <label>Базовая частота (запросов в секунду)</label>
                 <div class="hint">Допустимое количество запросов от одного пользователя к одной ВМ за секунду. Превышение = аномалия.</div>
-                <input type="number" name="base_frequency" id="inp_base" value="{{ base_freq }}" min="1" max="1000" step="1" required>
+                <input type="number" name="base_frequency" id="inp_base"
+                       value="{{ base_freq }}" min="1" max="1000" step="1" required>
             </div>
 
+            <!-- Поле 2: процент превышения для критической аномалии -->
             <div class="form-group">
                 <label>Процент превышения для критической аномалии (%)</label>
                 <div class="hint">На сколько % частота должна превысить базовую, чтобы считаться критической (и включить блокировку).</div>
-                <input type="number" name="minor_overhead" id="inp_overhead" value="{{ minor_overhead }}" min="0" max="500" step="1" required>
+                <input type="number" name="minor_overhead" id="inp_overhead"
+                       value="{{ minor_overhead }}" min="0" max="500" step="1" required>
             </div>
 
+            <!-- Поле 3: время временной блокировки в секундах -->
             <div class="form-group">
                 <label>Время временной блокировки (секунд)</label>
                 <div class="hint">На сколько секунд блокируется пользователь при критической аномалии частоты.</div>
-                <input type="number" name="block_seconds" id="inp_block" value="{{ block_sec }}" min="0" max="86400" step="1" required>
+                <input type="number" name="block_seconds" id="inp_block"
+                       value="{{ block_sec }}" min="0" max="86400" step="1" required>
             </div>
 
             <button type="submit" class="btn-save">💾 Сохранить и применить</button>
@@ -139,24 +185,33 @@
 </div>
 
 <script>
-  
-    const inpBase = document.getElementById('inp_base');
+    // ======= ПЕРЕСЧЁТ ПОРОГОВ В РЕАЛЬНОМ ВРЕМЕНИ =======
+    // При вводе значений в поля формы — блок «Текущие пороги» обновляется мгновенно,
+    // без отправки формы на сервер.
+
+    const inpBase     = document.getElementById('inp_base');
     const inpOverhead = document.getElementById('inp_overhead');
-    const inpBlock = document.getElementById('inp_block');
-    const dispBase = document.getElementById('display_base');
+    const inpBlock    = document.getElementById('inp_block');
+
+    const dispBase     = document.getElementById('display_base');
     const dispCritical = document.getElementById('display_critical');
-    const dispBlock = document.getElementById('display_block');
+    const dispBlock    = document.getElementById('display_block');
 
     function recalc() {
-        const base = parseInt(inpBase.value) || 1;
+        const base     = parseInt(inpBase.value)     || 1;
         const overhead = parseInt(inpOverhead.value) || 0;
-        const block = parseInt(inpBlock.value) || 0;
+        const block    = parseInt(inpBlock.value)    || 0;
+
+        // Формула критического порога: ⌈ base × (1 + overhead / 100) ⌉
         const critical = Math.ceil(base * (1 + overhead / 100));
-        dispBase.textContent = base;
+
+        // Обновляем отображаемые значения в блоке порогов
+        dispBase.textContent     = base;
         dispCritical.textContent = critical;
-        dispBlock.textContent = block;
+        dispBlock.textContent    = block;
     }
 
+    // Слушаем события ввода на всех трёх полях
     inpBase.addEventListener('input', recalc);
     inpOverhead.addEventListener('input', recalc);
     inpBlock.addEventListener('input', recalc);
