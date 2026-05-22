@@ -1,6 +1,6 @@
 {
-  "base_frequency_per_second": 2,
-  "minor_overhead_percent": 40,
+  "base_frequency_per_second": 3,
+  "minor_overhead_percent": 20,
   "temporary_block_seconds": 100,
   "users": [
     "Геолог",
