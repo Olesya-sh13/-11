@@ -74,3 +74,21 @@ python manage.py runserver 0.0.0.0:5000
 - `/logger/login/` → login page
 - `/logger/logout/` → logout
 - `/admin/` → Django admin panel
+
+## Автоматизированное модульное тестирование
+
+Используется фреймворк **pytest** + плагин **pytest-django**.
+
+Структура:
+- `pytest.ini` — конфигурация (settings module, маркеры, пути)
+- `tests/conftest.py` — общие фикстуры (admin_user, auditor_user, sample_log_message)
+- `tests/test_encryption.py` — модульные тесты шифрования (round-trip, параметризация, ошибки)
+- `tests/test_models.py` — тесты модели User (создание, уникальность, роли)
+- `tests/test_views.py` — интеграционные тесты HTTP-представлений (Django test client)
+
+Запуск:
+```bash
+python -m pytest                    # все тесты
+python -m pytest -m unit            # только чистые юнит-тесты
+python -m pytest tests/test_encryption.py -v
+```
