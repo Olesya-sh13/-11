@@ -6,3 +6,9 @@ id = "Po0EiV5KgR1JNrn-gyute"
 uri = "file://ЛР11_Отчёт_Качество_ПО.md"
 type = "text"
 title = "ЛР11 — Отчёт с результатами измерения качества"
+
+[[outputs]]
+id = "Sy9C1iAOSk8MydK4k-uhz"
+uri = "file://ЛР11_Отчёт_Качество_ПО.docx"
+type = "word_document"
+title = "ЛР11 — Отчёт (.docx)"
