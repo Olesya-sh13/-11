@@ -20,6 +20,7 @@ import time
 import json
 import math
 import subprocess
+import threading
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -556,20 +557,136 @@ def run_pytest():
 
 
 # ═══════════════════════════════════════════════════════════════════
+# 5. ПАРАЛЛЕЛЬНАЯ НАГРУЗКА — имитация одновременных пользователей
+# ═══════════════════════════════════════════════════════════════════
+
+def load_test():
+    hdr("5. НАГРУЗОЧНЫЙ ТЕСТ — параллельные запросы (threading)")
+
+    print("""
+  Цель: показать реальное поведение single-worker Gunicorn
+  при одновременных обращениях нескольких «пользователей».
+  Ожидаемый эффект: при N > 1 потоке запросы выстраиваются
+  в очередь → время отклика растёт линейно (1 worker = 1 CPU).
+""")
+
+    # Получаем токен один раз для всех потоков
+    token = get_auth_token()
+    if not token:
+        row("Нет токена — нагрузочный тест пропущен", "", "fail")
+        return 0
+
+    path = f"/logger/?t={token}"
+
+    def worker(idx, results_list):
+        """Один поток = один виртуальный пользователь."""
+        code, _, elapsed = http_get(path)
+        results_list[idx] = {"code": code, "ms": elapsed * 1000}
+
+    scenarios = [
+        (1,  "Базовый сценарий: 1 пользователь"),
+        (3,  "Лёгкая нагрузка:  3 одновременных"),
+        (6,  "Средняя нагрузка: 6 одновременных"),
+        (10, "Пиковая нагрузка: 10 одновременных"),
+    ]
+
+    print(f"  {'Сценарий':<38} {'Среднее':>8} {'Макс':>7} {'Мин':>7} "
+          f"{'Успех':>7} {'Статус'}")
+    print(f"  {'─'*38} {'─'*8} {'─'*7} {'─'*7} {'─'*7} {'─'*8}")
+
+    load_scores = []
+    baseline_avg = None
+
+    for n_users, label in scenarios:
+        slot = [None] * n_users
+        threads = [threading.Thread(target=worker, args=(i, slot))
+                   for i in range(n_users)]
+
+        # Запускаем все потоки одновременно
+        for t in threads: t.start()
+        for t in threads: t.join()
+
+        times   = [r["ms"] for r in slot if r]
+        codes   = [r["code"] for r in slot if r]
+        ok_cnt  = sum(1 for c in codes if c == 200)
+        avg_t   = sum(times) / len(times) if times else 0
+        max_t   = max(times) if times else 0
+        min_t   = min(times) if times else 0
+        success = round(ok_cnt / n_users * 100)
+
+        if baseline_avg is None:
+            baseline_avg = avg_t
+
+        # Деградация: насколько вырос средний отклик относительно baseline
+        degradation = round((avg_t - baseline_avg) / baseline_avg * 100) if baseline_avg else 0
+
+        status = (
+            "ok"   if avg_t < 800  and success == 100 else
+            "warn" if avg_t < 2500 and success >= 80  else
+            "fail"
+        )
+        deg_str = f"(+{degradation}%)" if degradation > 0 else "(база)"
+
+        icons = {"ok": "✅", "warn": "⚠️ ", "fail": "❌"}
+        print(f"  {icons[status]} {label:<36} {avg_t:>6.0f}ms "
+              f"{max_t:>5.0f}ms {min_t:>5.0f}ms {success:>5}%  {deg_str}")
+
+        load_scores.append((n_users, avg_t, success, status))
+
+    sep()
+
+    # Итоговый балл: штрафуем за деградацию при 10 пользователях
+    avg_10  = next((a for n, a, s, _ in load_scores if n == 10), 9999)
+    succ_10 = next((s for n, a, s, _ in load_scores if n == 10), 0)
+
+    if avg_10 < 800 and succ_10 == 100:
+        score = 100
+        verdict = "отличная масштабируемость"
+    elif avg_10 < 2000 and succ_10 >= 90:
+        score = 72
+        verdict = "приемлемо — очередь запросов ожидаема для 1 worker"
+    elif avg_10 < 5000 and succ_10 >= 70:
+        score = 50
+        verdict = "значительная деградация — рекомендуется увеличить workers"
+    else:
+        score = 25
+        verdict = "критическая деградация или отказы под нагрузкой"
+
+    row("Масштабируемость (10 пользователей)",
+        f"{avg_10:.0f}ms, {succ_10}% успех", load_scores[-1][3])
+    row("► ОЦЕНКА ПОД НАГРУЗКОЙ",
+        f"{score}/100  — {verdict}",
+        "ok" if score >= 80 else ("warn" if score >= 50 else "fail"))
+
+    # Пояснение для отчёта
+    print(f"""
+  Пояснение к результатам:
+  Single-worker Gunicorn обрабатывает запросы строго последовательно.
+  При N одновременных запросах N-1 из них ждут в очереди, поэтому
+  время отклика при пиковой нагрузке = среднее_время × N_пользователей.
+  Для устранения: увеличить workers в gunicorn.conf.py (workers = 4)
+  или добавить кэширование результатов simulate_events().
+""")
+
+    return score
+
+
+# ═══════════════════════════════════════════════════════════════════
 # СВОДНЫЙ ОТЧЁТ
 # ═══════════════════════════════════════════════════════════════════
 
-def summary(s_internal, s_external, s_use, s_tests):
+def summary(s_internal, s_external, s_use, s_tests, s_load):
     hdr("СВОДНЫЙ ОТЧЁТ ПО КАЧЕСТВУ — ГОСТ Р ИСО/МЭК 25010")
 
     print(f"\n  {'Раздел':<46} {'Оценка':>7}   {'Диаграмма'}")
     print(f"  {'─'*46} {'─'*7}   {'─'*12}")
 
     rows_data = [
-        ("1. Внутреннее качество (статический анализ)",   s_internal, 0.20),
-        ("2. Внешнее качество (функц. и HTTP-тесты)",     s_external, 0.35),
-        ("3. Качество при использовании (сценарии)",      s_use,      0.25),
+        ("1. Внутреннее качество (статический анализ)",   s_internal, 0.15),
+        ("2. Внешнее качество (функц. и HTTP-тесты)",     s_external, 0.30),
+        ("3. Качество при использовании (сценарии)",      s_use,      0.20),
         ("4. Автотесты pytest",                           s_tests,    0.20),
+        ("5. Нагрузочный тест (масштабируемость)",        s_load,     0.15),
     ]
     total_score = 0
     for label, score, weight in rows_data:
@@ -601,6 +718,9 @@ def summary(s_internal, s_external, s_use, s_tests):
         print("  • Рассмотреть кэширование для повышения стабильности отклика")
     if s_tests < 100:
         print("  • Дополнить тестовое покрытие (settings_view, logout, events)")
+    if s_load < 80:
+        print("  • Масштабируемость: увеличить workers = 4 в gunicorn.conf.py")
+        print("  • Добавить кэш для generate_events() (например, functools.lru_cache)")
     if total_score >= 65:
         print("  • Интегрировать Prometheus для непрерывного мониторинга качества")
 
@@ -620,4 +740,5 @@ if __name__ == "__main__":
     s2 = external_quality()
     s3 = quality_in_use()
     s4 = run_pytest()
-    summary(s1, s2, s3, s4)
+    s5 = load_test()
+    summary(s1, s2, s3, s4, s5)
